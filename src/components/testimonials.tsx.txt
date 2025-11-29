@@ -1,0 +1,24 @@
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Quote } from "lucide-react";
+
+const testimonials = [
+  {
+    text: "A caring place to learn — my child loves the teacher and the progress is steady.",
+    author: "Fatimah",
+    avatar: "F",
+    location: "Lagos",
+  },
+  {
+    text: "Finally, I have seen a platform that balances tradition and modern tools.",
+    author: "Ahmed",
+    avatar: "A",
+    location: "Abuja",
+  },
+  {
+    text: "The recitation feedback is so precise, I love it — my tajweed improved in days.",
+    author: "Hafsa",
+    avatar: "H",
+    location: "UK",
+  },
+];

@@ -1,0 +1,285 @@
+-- Create app_role enum
+CREATE TYPE public.app_role AS ENUM ('student', 'tutor', 'admin');
+
+-- Create profiles table
+CREATE TABLE public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  phone TEXT,
+  avatar_url TEXT,
+  bio TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create user_roles table
+CREATE TABLE public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role app_role NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, role)
+);
+
+-- Create security definer function for role checking
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id AND role = _role
+  )
+$$;
+
+-- Create courses table
+CREATE TABLE public.courses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  level TEXT NOT NULL,
+  duration_weeks INTEGER,
+  price_monthly DECIMAL(10,2),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create tutor_profiles table
+CREATE TABLE public.tutor_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  specializations TEXT[],
+  years_experience INTEGER,
+  hourly_rate DECIMAL(10,2),
+  is_certified BOOLEAN DEFAULT FALSE,
+  is_verified BOOLEAN DEFAULT FALSE,
+  availability JSONB,
+  location TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create enrollments table
+CREATE TABLE public.enrollments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+  tutor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  UNIQUE(student_id, course_id)
+);
+
+-- Create progress_tracking table
+CREATE TABLE public.progress_tracking (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  enrollment_id UUID NOT NULL REFERENCES public.enrollments(id) ON DELETE CASCADE,
+  lesson_number INTEGER NOT NULL,
+  lesson_title TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  notes TEXT,
+  recorded_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create donations table
+CREATE TABLE public.donations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  payment_status TEXT NOT NULL,
+  payment_intent_id TEXT,
+  donor_email TEXT,
+  donor_name TEXT,
+  message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tutor_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.progress_tracking ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.donations ENABLE ROW LEVEL SECURITY;
+
+-- Profiles policies
+CREATE POLICY "Users can view all profiles"
+  ON public.profiles FOR SELECT
+  USING (TRUE);
+
+CREATE POLICY "Users can update own profile"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert own profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+-- User roles policies
+CREATE POLICY "Users can view own roles"
+  ON public.user_roles FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Admins can manage all roles"
+  ON public.user_roles FOR ALL
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- Courses policies
+CREATE POLICY "Anyone can view active courses"
+  ON public.courses FOR SELECT
+  USING (is_active = TRUE);
+
+CREATE POLICY "Admins can manage courses"
+  ON public.courses FOR ALL
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- Tutor profiles policies
+CREATE POLICY "Anyone can view verified tutors"
+  ON public.tutor_profiles FOR SELECT
+  USING (is_verified = TRUE);
+
+CREATE POLICY "Tutors can update own profile"
+  ON public.tutor_profiles FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Tutors can insert own profile"
+  ON public.tutor_profiles FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can manage all tutor profiles"
+  ON public.tutor_profiles FOR ALL
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- Enrollments policies
+CREATE POLICY "Students can view own enrollments"
+  ON public.enrollments FOR SELECT
+  USING (auth.uid() = student_id);
+
+CREATE POLICY "Tutors can view their assigned enrollments"
+  ON public.enrollments FOR SELECT
+  USING (auth.uid() = tutor_id);
+
+CREATE POLICY "Admins can view all enrollments"
+  ON public.enrollments FOR SELECT
+  USING (public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "Students can create enrollments"
+  ON public.enrollments FOR INSERT
+  WITH CHECK (auth.uid() = student_id);
+
+CREATE POLICY "Admins can manage all enrollments"
+  ON public.enrollments FOR ALL
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- Progress tracking policies
+CREATE POLICY "Students can view own progress"
+  ON public.progress_tracking FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.enrollments
+      WHERE enrollments.id = progress_tracking.enrollment_id
+      AND enrollments.student_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Tutors can view assigned student progress"
+  ON public.progress_tracking FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.enrollments
+      WHERE enrollments.id = progress_tracking.enrollment_id
+      AND enrollments.tutor_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Tutors can create progress records"
+  ON public.progress_tracking FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.enrollments
+      WHERE enrollments.id = enrollment_id
+      AND enrollments.tutor_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Admins can manage all progress"
+  ON public.progress_tracking FOR ALL
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- Donations policies
+CREATE POLICY "Users can view own donations"
+  ON public.donations FOR SELECT
+  USING (auth.uid() = user_id OR user_id IS NULL);
+
+CREATE POLICY "Anyone can create donations"
+  ON public.donations FOR INSERT
+  WITH CHECK (TRUE);
+
+CREATE POLICY "Admins can view all donations"
+  ON public.donations FOR SELECT
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Add triggers
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE TRIGGER update_courses_updated_at
+  BEFORE UPDATE ON public.courses
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE TRIGGER update_tutor_profiles_updated_at
+  BEFORE UPDATE ON public.tutor_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE TRIGGER update_progress_tracking_updated_at
+  BEFORE UPDATE ON public.progress_tracking
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Function to auto-create profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
+    NOW(),
+    NOW()
+  );
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger for auto-creating profile
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
