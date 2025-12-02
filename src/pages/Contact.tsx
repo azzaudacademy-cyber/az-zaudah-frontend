@@ -59,7 +59,7 @@ export default function Contact() {
       'service_43un6ae',    // ✅ Your Service ID
       'template_x1yzabc',   // ✅ Your Template ID for the main contact message
       form.current,
-      'YOUR_PUBLIC_KEY'     // ❗ IMPORTANT: Add Your Public Key from EmailJS Dashboard
+      import.meta.env.VITE_EMAILJS_PUBLIC_KEY // ✅ Use environment variable
     ).then(
       (result) => {
         console.log('SUCCESS!', result.text);
