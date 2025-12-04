@@ -1,113 +1,171 @@
+import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { User } from "@supabase/supabase-js";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Calendar, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 
-const Dashboard = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+interface Profile {
+  full_name: string | null;
+  role: "student" | "teacher" | "admin";
+}
+
+interface EnrolledCourse {
+  courses: {
+    id: number;
+    title: string;
+    description: string;
+  } | null;
+}
+
+export default function Dashboard() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      setLoading(true);
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        toast.error("Could not fetch user session.");
-      } else {
-        setUser(data.user);
+    const loadProfile = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) return;
+
+        // Fetch profile
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("id", session.user.id)
+          .single();
+
+        if (error) {
+          throw error;
+        }
+        setProfile(data as Profile);
+      } catch (error) {
+        console.error("Error loading dashboard profile:", error);
+        // Optionally, show a toast notification to the user
+        // toast.error("Could not load your profile information.");
       }
-      setLoading(false);
     };
-    fetchUser();
+
+    loadProfile();
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setAvatarFile(e.target.files[0]);
-    }
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/"; // simple redirect
   };
 
-  const handleUpload = async () => {
-    if (!avatarFile || !user) return;
-
-    setUploading(true);
-    const fileExt = avatarFile.name.split('.').pop();
-    const filePath = `${user.id}/${Math.random()}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, avatarFile);
-
-    if (uploadError) {
-      toast.error("Failed to upload image.", { description: uploadError.message });
-      setUploading(false);
-      return;
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-
-    const { error: updateUserError } = await supabase.auth.updateUser({
-      data: { avatar_url: publicUrl },
-    });
-
-    if (updateUserError) {
-      toast.error("Failed to update profile.", { description: updateUserError.message });
-    } else {
-      toast.success("Profile picture updated successfully!");
-      // Refresh user data to show new avatar immediately
-      setUser({ ...user, user_metadata: { ...user.user_metadata, avatar_url: publicUrl } });
-    }
-    setUploading(false);
-    setAvatarFile(null);
-  };
+  const title =
+    profile?.role === "teacher"
+      ? "Teacher Dashboard"
+      : profile?.role === "admin"
+      ? "Admin Dashboard"
+      : "Student Dashboard";
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold mb-4">User Dashboard</h1>
-          <p className="text-muted-foreground mb-6">
-            Welcome to your personal dashboard. This page is protected.
-          </p>
+      <section className="py-10 bg-muted/40">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold">{title}</h1>
+              <p className="text-muted-foreground mt-1">
+                {profile?.full_name
+                  ? `Welcome, ${profile.full_name}.`
+                  : "Welcome to Az-Zaudah Academy."}
+              </p>
+            </div>
 
-          {loading ? (
-            <p>Loading user data...</p>
-          ) : user && (
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              Sign Out
+            </Button>
+          </div>
+
+          {/* Overview cards */}
+          <div className="grid gap-4 md:grid-cols-3 mb-8">
             <Card>
-              <CardHeader>
-                <CardTitle>Profile Picture</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">My Courses</CardTitle>
+                <BookOpen className="h-4 w-4 text-primary" />
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={user.user_metadata.avatar_url} alt={user.user_metadata.full_name} />
-                    <AvatarFallback>{user.user_metadata.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-2">
-                    <Label htmlFor="picture">Update Picture</Label>
-                    <Input id="picture" type="file" onChange={handleFileChange} accept="image/png, image/jpeg" />
+              <CardContent>
+                <div className="text-2xl font-bold">{enrolledCourses.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Courses you are enrolled in
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Upcoming Sessions
+                </CardTitle>
+                <Calendar className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">–</div>
+                <p className="text-xs text-muted-foreground">
+                  Next booked classes (wire up later)
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Teachers</CardTitle>
+                <Users className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">–</div>
+                <p className="text-xs text-muted-foreground">
+                  Favourite / saved teachers
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Placeholders for future sections */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>My Courses</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {enrolledCourses.length > 0 ? (
+                  <div className="space-y-4">
+                    {enrolledCourses.map(({ courses }) => courses && (
+                      <Link to={`/courses/${courses.id}`} key={courses.id}>
+                        <div className="p-4 border rounded-lg hover:bg-muted transition-colors">
+                          <h3 className="font-semibold">{courses.title}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{courses.description}</p>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                </div>
-                {avatarFile && (
-                  <Button onClick={handleUpload} disabled={uploading}>
-                    {uploading ? "Uploading..." : "Upload and Save"}
-                  </Button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">You are not enrolled in any courses yet. <Link to="/courses" className="text-primary hover:underline">Browse courses</Link>.</p>
                 )}
               </CardContent>
             </Card>
-          )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Announcements</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  This area can show platform announcements, new courses, Ramadan
+                  programs, etc.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      </section>
     </Layout>
   );
-};
-
-export default Dashboard;
+}

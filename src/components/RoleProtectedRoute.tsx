@@ -1,35 +1,63 @@
-import { Navigate, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { Navigate, Outlet } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
-import { Session } from "@supabase/supabase-js";
 
-interface RoleProtectedRouteProps {
-  requiredRole: string;
+type Role = "student" | "teacher" | "admin";
+
+interface ProfileRow {
+  role: Role;
 }
 
-export const RoleProtectedRoute = ({ requiredRole }: RoleProtectedRouteProps) => {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+export function RoleProtectedRoute({ allowedRoles }: { allowedRoles: Role[] }) {
+  const [loading, setLoading] = useState(true);
+  const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
+    const load = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          setAllowed(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select<"role", ProfileRow>("role")
+          .eq("id", session.user.id)
+          .single();
+
+        if (error || !data) {
+          console.error("Error loading profile:", error);
+          setAllowed(false);
+        } else {
+          setAllowed(allowedRoles.includes(data.role));
+        }
+      } catch (error) {
+        console.error("Error loading session or profile:", error);
+        setAllowed(false);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    checkSession();
+    load();
+  }, [allowedRoles]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (session === undefined) {
-    return <div>Loading...</div>; // Or a spinner component
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-10 text-muted-foreground">
+        Checking permissions...
+      </div>
+    );
   }
 
-  const userRole = session?.user?.user_metadata?.role;
+  if (!allowed) {
+    return <Navigate to="/" replace />;
+  }
 
-  return session && userRole === requiredRole ? <Outlet /> : <Navigate to="/dashboard" />;
-};
+  return <Outlet />;
+}

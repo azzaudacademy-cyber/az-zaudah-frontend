@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -249,12 +249,9 @@ const Courses = () => {
                     >
                       Enroll Now
                     </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => navigate(`/courses/${course.id}`)}
-                    >
-                      Learn More
-                    </Button>
+                    <Link to={`/courses/${course.id}`} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                      View Details
+                    </Link>
                   </CardFooter>
                 </Card>
               ))}

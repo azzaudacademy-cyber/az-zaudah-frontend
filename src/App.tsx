@@ -17,7 +17,6 @@ import Contact from "@/pages/Contact";
 import FindTeacher from "@/pages/FindTeacher";
 import TeacherProfile from "@/pages/TeacherProfile";
 // Ensure the Dashboard component is correctly imported
-import Dashboard from "@/pages/Dashboard"; // Check if this file exists
 // Ensure the ProtectedRoute component is correctly imported
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RoleProtectedRoute } from "@/components/RoleProtectedRoute";
@@ -25,6 +24,8 @@ import Settings from "@/pages/Settings";
 import Wallet from "@/pages/Wallet";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { supabase } from "@/lib/supabase";
+import Dashboard from "@/pages/Dashboard";
+import CourseDetails from "@/pages/CourseDetails";
 import { Session } from "@supabase/supabase-js";
 
 // Import dedicated course pages
@@ -67,18 +68,19 @@ function App() {
           <Route path="/why-azzaudah" element={<WhyAzzaudah />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/find-teacher" element={<FindTeacher />} />
+          <Route path="/courses/:id" element={<CourseDetails />} />
           <Route path="/teacher/:id" element={<TeacherProfile />} />
           <Route path="/donate" element={<Donate />} />
 
           {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
+          <Route element={<ProtectedRoute/>}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/parent-portal" element={<ParentPortal />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/wallet" element={<Wallet />} />
 
             {/* Admin-Only Route */}
-            <Route element={<RoleProtectedRoute requiredRole="admin" />}>
+            <Route element={<RoleProtectedRoute allowedRoles={["admin"]} />}>
               <Route path="/admin" element={<AdminDashboard />} />
             </Route>
 

@@ -56,8 +56,8 @@ export default function Contact() {
     setLoading(true);
 
     emailjs.sendForm(
-      'service_43un6ae',    // ✅ Your Service ID
-      'template_x1yzabc',   // ✅ Your Template ID for the main contact message
+      import.meta.env.VITE_EMAILJS_SERVICE_ID,    // ✅ Your Service ID
+      import.meta.env.VITE_EMAILJS_TEMPLATE_ID,   // ✅ Your Template ID for the main contact message
       form.current,
       import.meta.env.VITE_EMAILJS_PUBLIC_KEY // ✅ Use environment variable
     ).then(

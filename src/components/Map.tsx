@@ -1,16 +1,16 @@
 import { useState, useMemo } from 'react';
 import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { useTheme } from "next-themes";
-import logo from "@/assets/logo.png"; // Import your logo
+import logo from "@/assets/logo.png";
 
 const containerStyle = {
   width: '100%',
-  height: '300px'
+  height: '300px',
 };
 
 const center = {
-  lat: 9.057950,
-  lng: 7.472140
+  lat: 9.05795,
+  lng: 7.47214,
 };
 
 // This is the JSON style object you copied from the Styling Wizard
@@ -78,18 +78,42 @@ const darkMapStyle = [
 export function Map() {
   const { theme } = useTheme();
   const [infoWindowOpen, setInfoWindowOpen] = useState(false);
-  const { isLoaded } = useJsApiLoader({
+
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+  // If no key or something is wrong, just show a nice message
+  if (!apiKey) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Map integration coming soon, in shaa Allah.
+      </div>
+    );
+  }
+
+  const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: "YOUR_API_KEY"
+    googleMapsApiKey: apiKey,
   });
 
   const mapOptions = useMemo(() => ({
     disableDefaultUI: true,
     zoomControl: true,
-    styles: theme === 'dark' ? darkMapStyle : [] // Use dark styles for dark theme, default for light
+    styles: theme === "dark" ? darkMapStyle : []
   }), [theme]);
 
-  if (!isLoaded) return <div>Loading Map...</div>;
+  if (loadError) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Map is temporarily unavailable. We’ll fix this soon, in shaa Allah.
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">Loading map…</div>
+    );
+  }
 
   return (
     <GoogleMap
@@ -115,9 +139,9 @@ export function Map() {
           position={center}
           onCloseClick={() => setInfoWindowOpen(false)}
         >
-          <div className="map-info-window-content">
-            <h3 className="map-info-window-title">Az-Zaudah Academy</h3>
-            <p className="map-info-window-text m-0 text-[14px]">
+          <div>
+            <h3 className="font-semibold text-sm">Az-Zaudah Academy</h3>
+            <p className="m-0 text-xs">
               20 Gwani str, Zone 4, Wuse, Abuja, Nigeria
             </p>
           </div>
