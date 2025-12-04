@@ -1,6 +1,4 @@
 import { Routes, Route } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { ThemeProvider } from "@/components/theme-provider";
 
 // Import all your page components
 import Index from "@/pages/Index";
@@ -23,79 +21,47 @@ import { RoleProtectedRoute } from "@/components/RoleProtectedRoute";
 import Settings from "@/pages/Settings";
 import Wallet from "@/pages/Wallet";
 import AdminDashboard from "@/pages/AdminDashboard";
-import { supabase } from "@/lib/supabase";
 import Dashboard from "@/pages/Dashboard";
 import CourseDetails from "@/pages/CourseDetails";
-import { Session } from "@supabase/supabase-js";
-
-// Import dedicated course pages
-// NOTE: The following imports are for dedicated course pages that have not been created yet.
-// They are commented out to prevent compilation errors.
-// Create these files in `src/pages/courses/` and then uncomment the lines below.
-// import QuranRecitationPage from "@/pages/courses/QuranRecitation";
-// import TajweedPage from "@/pages/courses/TajweedPage";
-// import HifdhAndQiraahPage from "@/pages/courses/HifdhAndQiraah";
-// import ArabicPage from "@/pages/courses/Arabic";
-// import IslamicStudiesPage from "@/pages/courses/IslamicStudies";
+import NotFound from "@/pages/NotFound";
 
 function App() {
-  const [session, setSession] = useState<Session | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <div>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/why-azzaudah" element={<WhyAzzaudah />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/find-teacher" element={<FindTeacher />} />
-          <Route path="/courses/:id" element={<CourseDetails />} />
-          <Route path="/teacher/:id" element={<TeacherProfile />} />
-          <Route path="/donate" element={<Donate />} />
+    <Routes>
+      {/* Public pages */}
+      <Route path="/" element={<Index />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/marketplace" element={<Marketplace />} />
+      <Route path="/courses" element={<Courses />} />
+      <Route path="/courses/:id" element={<CourseDetails />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/why-azzaudah" element={<WhyAzzaudah />} />
+      <Route path="/find-teacher" element={<FindTeacher />} />
+      <Route path="/teachers/:id" element={<TeacherProfile />} />
+      <Route path="/donate" element={<Donate />} />
+      <Route path="/parent-portal" element={<ParentPortal />} />
 
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute/>}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/parent-portal" element={<ParentPortal />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/wallet" element={<Wallet />} />
+      {/* Auth page */}
+      <Route path="/auth" element={<Auth />} />
 
-            {/* Admin-Only Route */}
-            <Route element={<RoleProtectedRoute allowedRoles={["admin"]} />}>
-              <Route path="/admin" element={<AdminDashboard />} />
-            </Route>
+      {/* Authenticated students/teachers */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/wallet" element={<Wallet />} />
+      </Route>
 
-          </Route>
+      {/* Admin-only section */}
+      <Route
+        element={<RoleProtectedRoute allowedRoles={["admin"]} />}
+      >
+        <Route path="/admin" element={<AdminDashboard />} />
+      </Route>
 
-          {/* Dedicated Course Routes - Uncomment these as you create the pages */}
-          {/* <Route path="/courses/quran-recitation" element={<QuranRecitationPage />} /> */}
-          {/* <Route path="/courses/tajweed" element={<TajweedPage />} /> */}
-          {/* <Route path="/courses/hifdh-qiraah" element={<HifdhAndQiraahPage />} /> */}
-          {/* <Route path="/courses/arabic" element={<ArabicPage />} /> */}
-          {/* <Route path="/courses/islamic-studies" element={<IslamicStudiesPage />} /> */}
-          <Route path="*" element={<NotFound />} /> {/* Catch-all for 404 pages */}
-        </Routes>
-      </div>
-    </ThemeProvider>
+      {/* 404 */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 

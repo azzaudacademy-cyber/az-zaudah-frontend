@@ -1,51 +1,13 @@
-import { useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
-type Role = "student" | "teacher" | "admin";
-
-interface ProfileRow {
-  role: Role;
-}
-
-export function RoleProtectedRoute({ allowedRoles }: { allowedRoles: Role[] }) {
-  const [loading, setLoading] = useState(true);
-  const [allowed, setAllowed] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          setAllowed(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .select<"role", ProfileRow>("role")
-          .eq("id", session.user.id)
-          .single();
-
-        if (error || !data) {
-          console.error("Error loading profile:", error);
-          setAllowed(false);
-        } else {
-          setAllowed(allowedRoles.includes(data.role));
-        }
-      } catch (error) {
-        console.error("Error loading session or profile:", error);
-        setAllowed(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [allowedRoles]);
+type Props = {
+  allowedRoles: string[];
+  children?: ReactNode;
+};
+export function RoleProtectedRoute({ allowedRoles, children }: Props) {
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -55,9 +17,13 @@ export function RoleProtectedRoute({ allowedRoles }: { allowedRoles: Role[] }) {
     );
   }
 
-  if (!allowed) {
-    return <Navigate to="/" replace />;
+  if (!user) return <Navigate to="/auth" replace />;
+
+  const userRole = profile?.role ?? "student";
+
+  if (!allowedRoles.includes(userRole)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return <Outlet />;
+  return children ?? <Outlet />;
 }
