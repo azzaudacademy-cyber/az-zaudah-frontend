@@ -3,20 +3,22 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-type AdminEnrollmentRow = {
+export interface AdminEnrollmentRow {
   id: string;
   created_at: string;
   student_id: string;
+
   courses: {
     id: string;
     title: string;
-  } | null;
+  }[];
+
   profiles: {
     id: string;
-    full_name: string | null;
-    email: string | null;
-  } | null;
-};
+    full_name: string;
+    email: string;
+  }[];
+}
 
 export default function AdminDashboard() {
   const [enrollments, setEnrollments] = useState<AdminEnrollmentRow[]>([]);
@@ -26,9 +28,13 @@ export default function AdminDashboard() {
     async function loadData() {
       const { data, error } = await supabase
         .from("enrollments")
-        .select(
-          "id, created_at, student_id, courses(id, title), profiles:student_id(id, full_name, email)"
-        )
+        .select(`
+      id,
+      created_at,
+      student_id,
+      courses ( id, title ),
+      profiles:profiles ( id, full_name, email )
+  `)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -75,13 +81,12 @@ export default function AdminDashboard() {
                     >
                       <div>
                         <p className="font-semibold">
-                          {row.courses?.title ?? "Course"}
+                          {row.courses?.[0]?.title || "No course"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Student: {row.profiles?.full_name || "Unknown"} (
-                          {row.profiles?.email || row.profiles?.id})
+                          Student: {row.profiles?.[0]?.full_name || "Unknown"} ({row.profiles?.[0]?.email || "Unknown"})
                         </p>
-                      </div>
+                      </div> 
                       <p className="text-xs text-muted-foreground mt-2 md:mt-0">
                         {new Date(row.created_at).toLocaleString()}
                       </p>

@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Outlet } from "react-router-dom";
 
 // Import all your page components
 import Index from "@/pages/Index";
@@ -7,7 +7,6 @@ import TermsOfService from "@/pages/Terms";
 import Marketplace from "@/pages/Marketplace";
 import Courses from "@/pages/Courses";
 import Auth from "@/pages/Auth";
-import NotFound from "@/pages/NotFound";
 import Donate from "@/pages/Donate";
 import ParentPortal from "@/pages/ParentPortal";
 import WhyAzzaudah from "@/pages/WhyAzzaudah";
@@ -16,7 +15,7 @@ import FindTeacher from "@/pages/FindTeacher";
 import TeacherProfile from "@/pages/TeacherProfile";
 // Ensure the Dashboard component is correctly imported
 // Ensure the ProtectedRoute component is correctly imported
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { RoleProtectedRoute } from "@/components/RoleProtectedRoute";
 import Settings from "@/pages/Settings";
 import Wallet from "@/pages/Wallet";
@@ -46,16 +45,16 @@ function App() {
       <Route path="/auth" element={<Auth />} />
 
       {/* Authenticated students/teachers */}
-      <Route element={<ProtectedRoute />}>
+      <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/wallet" element={<Wallet />} />
       </Route>
 
       {/* Admin-only section */}
-      <Route
-        element={<RoleProtectedRoute allowedRoles={["admin"]} />}
-      >
+      <Route element={
+        <RoleProtectedRoute role="admin"><Outlet /></RoleProtectedRoute>
+      }>
         <Route path="/admin" element={<AdminDashboard />} />
       </Route>
 
